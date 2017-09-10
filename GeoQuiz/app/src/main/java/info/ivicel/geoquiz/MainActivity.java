@@ -17,6 +17,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String KEY_INDEX = "index";
     private static final String CHEAT_LIST_INDEX = "cheat_list_index";
+    private static final String CHEAT_COUNT = "cheat_count";
     private static final int REQUEST_CHEAT_CODE = 0;
     
     private Button mTrueButton;
@@ -25,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private Button mCheatButton;
     private TextView mQuestionTextView;
     private boolean mIsCheat;
+    private int mCheatCount = 0;
     
     private Question[] mQuestionBank = new Question[] {
         new Question(R.string.question_australia, true),
@@ -46,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             mCurrentIndex = savedInstanceState.getInt(KEY_INDEX);
             mCheatIndexList = savedInstanceState.getIntegerArrayList(CHEAT_LIST_INDEX);
+            mCheatCount = savedInstanceState.getInt(CHEAT_COUNT);
             if (mCheatIndexList != null) {
                 for (int index : mCheatIndexList) {
                     mQuestionBank[index].setCheat(true);
@@ -89,7 +92,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
-                Intent intent = CheatActivity.newIntent(MainActivity.this, answerIsTrue);
+                Intent intent = CheatActivity.newIntent(MainActivity.this, answerIsTrue,
+                        mCheatCount);
                 startActivityForResult(intent, REQUEST_CHEAT_CODE);
             }
         });
@@ -100,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
         super.onSaveInstanceState(outState);
         outState.putInt(KEY_INDEX, mCurrentIndex);
         outState.putIntegerArrayList(CHEAT_LIST_INDEX, (ArrayList<Integer>)mCheatIndexList);
+        outState.putInt(CHEAT_COUNT, mCheatCount);
     }
     
     @Override
@@ -120,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
             mIsCheat = CheatActivity.wasAnswerShown(data);
             if (mIsCheat) {
                 mCheatIndexList.add(mCurrentIndex);
+                mCheatCount++;
             }
         }
     }

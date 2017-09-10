@@ -15,4 +15,6 @@
     <string name="show_answer_button">Show Answer</string>
     <string name="cheat_button">Cheat!</string>
     <string name="judgment_toast">Cheating is wrong.</string>
+    <string name="api_level">API Level %d</string>
+    <string name="remain_cheat_count">You remain %d times.</string>
 </resources>

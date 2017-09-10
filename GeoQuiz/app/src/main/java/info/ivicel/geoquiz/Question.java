@@ -16,7 +16,6 @@ public class Question {
         mTextResId = textResId;
         mAnswerTrue = answerTrue;
         mIsCheat = false;
-        Log.d(TAG, "Question: new question = " + mIsCheat);
     }
     
     public boolean isCheat() {
