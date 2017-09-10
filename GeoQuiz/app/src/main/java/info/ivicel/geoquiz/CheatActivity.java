@@ -20,6 +20,7 @@ public class CheatActivity extends AppCompatActivity {
     private boolean mAnswerIsTrue;
     private TextView mAnswerTextView;
     private Button mShowAnswerButton;
+    private boolean mIsAnswerShown = false;
     
     public static Intent newIntent(Context packageContext, boolean answerIsTrue) {
         Intent intent = new Intent(packageContext, CheatActivity.class);
@@ -31,32 +32,59 @@ public class CheatActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_cheat);
-        
+    
+        if (savedInstanceState != null) {
+            mIsAnswerShown = savedInstanceState.getBoolean(EXTRA_ANSWER_SHOWN);
+            if (mIsAnswerShown) {
+                setAnswerShownResult();
+            }
+        }
+    
         mAnswerIsTrue = getIntent().getBooleanExtra(EXTRA_ANSWER_IS_TRUE, false);
         mAnswerTextView = (TextView)findViewById(R.id.answer_text_view);
         mShowAnswerButton = (Button)findViewById(R.id.show_answer_button);
-        
-        
+    
         mShowAnswerButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mAnswerIsTrue) {
-                    mAnswerTextView.setText(R.string.true_button);
-                } else {
-                    mAnswerTextView.setText(R.string.false_button);
-                }
-                setAnswerShownResult(true);
+                mIsAnswerShown = true;
+                setAnswerShown();
+                setAnswerShownResult();
             }
         });
+    
+        if (mIsAnswerShown) {
+            setAnswerShown();
+        }
     }
     
-    private void setAnswerShownResult(boolean isAnswerShown) {
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(EXTRA_ANSWER_SHOWN, mIsAnswerShown);
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        
+    }
+    
+    private void setAnswerShownResult() {
         Intent data = new Intent();
-        data.putExtra(EXTRA_ANSWER_SHOWN, isAnswerShown);
+        data.putExtra(EXTRA_ANSWER_SHOWN, mIsAnswerShown);
         setResult(RESULT_OK, data);
     }
     
     public static boolean wasAnswerShown(Intent result) {
         return result.getBooleanExtra(EXTRA_ANSWER_SHOWN, false);
+    }
+    
+    private void setAnswerShown() {
+        if (mAnswerIsTrue) {
+            mAnswerTextView.setText(R.string.true_button);
+        } else {
+            mAnswerTextView.setText(R.string.false_button);
+        }
     }
 }

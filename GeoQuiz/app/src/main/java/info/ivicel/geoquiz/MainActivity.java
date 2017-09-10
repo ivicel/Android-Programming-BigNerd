@@ -10,9 +10,13 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String KEY_INDEX = "index";
+    private static final String CHEAT_LIST_INDEX = "cheat_list_index";
     private static final int REQUEST_CHEAT_CODE = 0;
     
     private Button mTrueButton;
@@ -31,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
         new Question(R.string.question_asia, true)
     };
     
+    private List<Integer> mCheatIndexList = new ArrayList<>();
     private int mCurrentIndex = 0;
     
     @Override
@@ -40,6 +45,12 @@ public class MainActivity extends AppCompatActivity {
     
         if (savedInstanceState != null) {
             mCurrentIndex = savedInstanceState.getInt(KEY_INDEX);
+            mCheatIndexList = savedInstanceState.getIntegerArrayList(CHEAT_LIST_INDEX);
+            if (mCheatIndexList != null) {
+                for (int index : mCheatIndexList) {
+                    mQuestionBank[index].setCheat(true);
+                }
+            }
         }
     
         mNextButton = (Button)findViewById(R.id.next_button);
@@ -67,7 +78,8 @@ public class MainActivity extends AppCompatActivity {
         mNextButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mCurrentIndex = (mCurrentIndex + 1) % mQuestionBank.length;
+                mQuestionBank[mCurrentIndex++].setCheat(mIsCheat);
+                mCurrentIndex = mCurrentIndex % mQuestionBank.length;
                 mIsCheat = false;
                 updateQuestion();
             }
@@ -87,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putInt(KEY_INDEX, mCurrentIndex);
+        outState.putIntegerArrayList(CHEAT_LIST_INDEX, (ArrayList<Integer>)mCheatIndexList);
     }
     
     @Override
@@ -105,12 +118,16 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             mIsCheat = CheatActivity.wasAnswerShown(data);
+            if (mIsCheat) {
+                mCheatIndexList.add(mCurrentIndex);
+            }
         }
     }
     
     private void updateQuestion() {
-        int question = mQuestionBank[mCurrentIndex].getTextResId();
-        mQuestionTextView.setText(question);
+        Question question = mQuestionBank[mCurrentIndex];
+        mQuestionTextView.setText(question.getTextResId());
+        mIsCheat = question.isCheat();
     }
     
     private void checkAnswer(boolean userPressedTrue) {
