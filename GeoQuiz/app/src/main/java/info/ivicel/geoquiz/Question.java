@@ -7,10 +7,20 @@ package info.ivicel.geoquiz;
 public class Question {
     private int mTextResId;
     private boolean mAnswerTrue;
+    private boolean mIsAnswered;
     
     public Question(int textResId, boolean answerTrue) {
         mTextResId = textResId;
         mAnswerTrue = answerTrue;
+        mIsAnswered = false;
+    }
+    
+    public boolean isAnswered() {
+        return mIsAnswered;
+    }
+    
+    public void setAnswered(boolean answered) {
+        mIsAnswered = answered;
     }
     
     public int getTextResId() {
