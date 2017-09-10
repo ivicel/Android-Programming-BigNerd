@@ -1,5 +1,6 @@
 package info.ivicel.geoquiz;
 
+import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,11 +12,15 @@ import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
+    private static final String KEY_INDEX = "index";
+    private static final int REQUEST_CHEAT_CODE = 0;
     
     private Button mTrueButton;
     private Button mFalseButton;
     private Button mNextButton;
+    private Button mCheatButton;
     private TextView mQuestionTextView;
+    private boolean mIsCheat;
     
     private Question[] mQuestionBank = new Question[] {
         new Question(R.string.question_australia, true),
@@ -27,7 +32,6 @@ public class MainActivity extends AppCompatActivity {
     };
     
     private int mCurrentIndex = 0;
-    private static final String KEY_INDEX = "index";
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,9 +44,12 @@ public class MainActivity extends AppCompatActivity {
     
         mNextButton = (Button)findViewById(R.id.next_button);
         mQuestionTextView = (TextView)findViewById(R.id.question_text_view);
+        mTrueButton = (Button)findViewById(R.id.true_button);
+        mFalseButton = (Button)findViewById(R.id.false_button);
+        mNextButton = (Button)findViewById(R.id.next_button);
+        mCheatButton = (Button)findViewById(R.id.cheat_button);
         updateQuestion();
     
-        mTrueButton = (Button)findViewById(R.id.true_button);
         mTrueButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -50,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     
-        mFalseButton = (Button)findViewById(R.id.false_button);
         mFalseButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -58,12 +64,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     
-        mNextButton = (Button)findViewById(R.id.next_button);
         mNextButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 mCurrentIndex = (mCurrentIndex + 1) % mQuestionBank.length;
+                mIsCheat = false;
                 updateQuestion();
+            }
+        });
+        
+        mCheatButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
+                Intent intent = CheatActivity.newIntent(MainActivity.this, answerIsTrue);
+                startActivityForResult(intent, REQUEST_CHEAT_CODE);
             }
         });
     }
@@ -80,6 +95,19 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onDestroy");
     }
     
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode != RESULT_OK) {
+            return;
+        }
+        if (requestCode == REQUEST_CHEAT_CODE) {
+            if (data == null) {
+                return;
+            }
+            mIsCheat = CheatActivity.wasAnswerShown(data);
+        }
+    }
+    
     private void updateQuestion() {
         int question = mQuestionBank[mCurrentIndex].getTextResId();
         mQuestionTextView.setText(question);
@@ -87,12 +115,16 @@ public class MainActivity extends AppCompatActivity {
     
     private void checkAnswer(boolean userPressedTrue) {
         boolean answerIsTrue = mQuestionBank[mCurrentIndex].isAnswerTrue();
-        int messageResId = 0;
-    
-        if (answerIsTrue == userPressedTrue) {
-            messageResId = R.string.correct_toast;
+        int messageResId;
+        
+        if (mIsCheat) {
+            messageResId = R.string.judgment_toast;
         } else {
-            messageResId = R.string.incorrect_toast;
+            if (answerIsTrue == userPressedTrue) {
+                messageResId = R.string.correct_toast;
+            } else {
+                messageResId = R.string.incorrect_toast;
+            }
         }
         showToast(messageResId);
     }
