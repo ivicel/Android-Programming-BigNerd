@@ -2,15 +2,16 @@ package info.ivicel.geoquiz;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
+    private static final String TAG = "MainActivity";
+    
     private Button mTrueButton;
     private Button mFalseButton;
     private Button mNextButton;
@@ -26,12 +27,16 @@ public class MainActivity extends AppCompatActivity {
     };
     
     private int mCurrentIndex = 0;
-    
+    private static final String KEY_INDEX = "index";
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+    
+        if (savedInstanceState != null) {
+            mCurrentIndex = savedInstanceState.getInt(KEY_INDEX);
+        }
     
         mNextButton = (Button)findViewById(R.id.next_button);
         mQuestionTextView = (TextView)findViewById(R.id.question_text_view);
@@ -61,6 +66,18 @@ public class MainActivity extends AppCompatActivity {
                 updateQuestion();
             }
         });
+    }
+    
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt(KEY_INDEX, mCurrentIndex);
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "onDestroy");
     }
     
     private void updateQuestion() {
