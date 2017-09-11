@@ -35,5 +35,4 @@
         android:id="@+id/crime_solved"
         android:text="@string/crime_solved_label"/>
 
-
 </LinearLayout>
