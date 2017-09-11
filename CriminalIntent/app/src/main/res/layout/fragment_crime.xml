@@ -21,7 +21,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        style="?android:listSeparatorTextViewStyle"
+        style="?android:attr/listSeparatorTextViewStyle"
         android:text="@string/crime_details_label"/>
 
     <Button
@@ -34,5 +34,6 @@
         android:layout_height="wrap_content"
         android:id="@+id/crime_solved"
         android:text="@string/crime_solved_label"/>
+
 
 </LinearLayout>

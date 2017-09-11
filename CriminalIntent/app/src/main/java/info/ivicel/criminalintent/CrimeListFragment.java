@@ -5,15 +5,17 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Created by sedny on 11/09/2017.
@@ -21,8 +23,6 @@ import java.util.List;
 
 public class CrimeListFragment extends Fragment {
     private static final String TAG = "CrimeListFragment";
-    private static final int TYPE_CRIME_NEED_POLICE = 1;
-    private static final int TYPE_CRIME_NO_NEED_POLICE = 2;
     
     private RecyclerView mCrimeRecyclerView;
     private CrimeAdapter mAdapter;
@@ -52,13 +52,15 @@ public class CrimeListFragment extends Fragment {
         private TextView mTitleTextView;
         private TextView mDateTextView;
         private Crime mCrime;
+        private ImageView mSolvedImageView;
     
         public CrimeHolder(LayoutInflater inflater, ViewGroup parent) {
             super(inflater.inflate(R.layout.list_item_crime, parent, false));
     
             mTitleTextView = (TextView)itemView.findViewById(R.id.crime_title);
             mDateTextView = (TextView)itemView.findViewById(R.id.crime_date);
-            
+            mSolvedImageView = (ImageView)itemView.findViewById(R.id.crime_solved);
+    
             itemView.setOnClickListener(this);
         }
     
@@ -68,25 +70,16 @@ public class CrimeListFragment extends Fragment {
         }
     
         public void bind(Crime crime) {
+            SimpleDateFormat format = new SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault());
             mCrime = crime;
+            String date = format.format(crime.getDate());
             mTitleTextView.setText(crime.getTitle());
-            mDateTextView.setText(crime.getDate().toString());
-            if (getItemViewType() == TYPE_CRIME_NEED_POLICE) {
-                Button callPolice = (Button)itemView.findViewById(R.id.call_police);
-                callPolice.setVisibility(View.VISIBLE);
-                callPolice.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        Toast.makeText(getContext(), getResources().getString(R.string.polic_action),
-                                Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
+            mDateTextView.setText(date);
+            mSolvedImageView.setVisibility(mCrime.isSolved() ? View.VISIBLE : View.GONE);
         }
     }
     
     private class CrimeAdapter extends RecyclerView.Adapter<CrimeHolder> {
-        
         private List<Crime> mCrimes;
     
         public CrimeAdapter(List<Crime> crimes) {
@@ -96,32 +89,20 @@ public class CrimeListFragment extends Fragment {
         @Override
         public CrimeHolder onCreateViewHolder(ViewGroup parent, int viewType) {
             LayoutInflater inflater = LayoutInflater.from(getContext());
-            CrimeHolder holder = new CrimeHolder(inflater, parent);
-            
-            return holder;
+    
+            return new CrimeHolder(inflater, parent);
         }
     
         @Override
         public void onBindViewHolder(CrimeHolder holder, int position) {
             Crime crime = mCrimes.get(position);
+            
             holder.bind(crime);
         }
     
         @Override
         public int getItemCount() {
             return mCrimes.size();
-        }
-    
-        @Override
-        public int getItemViewType(int position) {
-            int viewType;
-            if (position % 2 == 0) {
-                viewType = TYPE_CRIME_NEED_POLICE;
-            } else {
-                viewType = TYPE_CRIME_NO_NEED_POLICE;
-            }
-            
-            return viewType;
         }
     }
 }
