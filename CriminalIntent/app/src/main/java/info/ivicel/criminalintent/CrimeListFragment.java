@@ -1,10 +1,13 @@
 package info.ivicel.criminalintent;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,10 +15,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.List;
-import java.util.Locale;
+import java.util.UUID;
 
 /**
  * Created by sedny on 11/09/2017.
@@ -23,9 +24,11 @@ import java.util.Locale;
 
 public class CrimeListFragment extends Fragment {
     private static final String TAG = "CrimeListFragment";
+    public static final int CRIME_REQUEST_CODE = 1;
     
     private RecyclerView mCrimeRecyclerView;
     private CrimeAdapter mAdapter;
+    private int mChangedCrimePosition;
     
     @Nullable
     @Override
@@ -40,12 +43,23 @@ public class CrimeListFragment extends Fragment {
         return v;
     }
     
+    @Override
+    public void onResume() {
+        super.onResume();
+        updateUI();
+    }
+    
     private void updateUI() {
         CrimeLab crimeLab = CrimeLab.get(getContext());
         List<Crime> crimes = crimeLab.getCrimes();
     
-        mAdapter = new CrimeAdapter(crimes);
-        mCrimeRecyclerView.setAdapter(mAdapter);
+        if (mAdapter == null) {
+            mAdapter = new CrimeAdapter(crimes);
+            mCrimeRecyclerView.setAdapter(mAdapter);
+        } else {
+            mAdapter.notifyItemChanged(mChangedCrimePosition);
+            Log.d(TAG, "updateUI: " + mChangedCrimePosition);
+        }
     }
     
     private class CrimeHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
@@ -66,15 +80,14 @@ public class CrimeListFragment extends Fragment {
     
         @Override
         public void onClick(View v) {
-            Toast.makeText(getContext(), mCrime.getTitle() + " clicked!", Toast.LENGTH_SHORT).show();
+            Intent intent = CrimeActivity.newIntent(getContext(), mCrime.getId());
+            startActivityForResult(intent, CRIME_REQUEST_CODE);
         }
     
         public void bind(Crime crime) {
-            SimpleDateFormat format = new SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault());
             mCrime = crime;
-            String date = format.format(crime.getDate());
             mTitleTextView.setText(crime.getTitle());
-            mDateTextView.setText(date);
+            mDateTextView.setText(crime.getDate().toString());
             mSolvedImageView.setVisibility(mCrime.isSolved() ? View.VISIBLE : View.GONE);
         }
     }
@@ -103,6 +116,22 @@ public class CrimeListFragment extends Fragment {
         @Override
         public int getItemCount() {
             return mCrimes.size();
+        }
+    }
+    
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.d(TAG, "onActivityResult: " + resultCode);
+        if (resultCode != Activity.RESULT_OK) {
+            return;
+        }
+    
+        if (requestCode == CRIME_REQUEST_CODE && data != null) {
+            UUID crimeId = CrimeFragment.getChangedCrimeId(data);
+            CrimeLab crimeLab = CrimeLab.get(getContext());
+            List<Crime> crimes = crimeLab.getCrimes();
+            mChangedCrimePosition = crimes.indexOf(crimeLab.getCrime(crimeId));
         }
     }
 }
