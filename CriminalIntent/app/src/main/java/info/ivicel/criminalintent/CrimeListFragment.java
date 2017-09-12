@@ -58,7 +58,6 @@ public class CrimeListFragment extends Fragment {
             mCrimeRecyclerView.setAdapter(mAdapter);
         } else {
             mAdapter.notifyItemChanged(mChangedCrimePosition);
-            Log.d(TAG, "updateUI: " + mChangedCrimePosition);
         }
     }
     
@@ -80,7 +79,7 @@ public class CrimeListFragment extends Fragment {
     
         @Override
         public void onClick(View v) {
-            Intent intent = CrimeActivity.newIntent(getContext(), mCrime.getId());
+            Intent intent = CrimePagerActivity.newIntent(getContext(), mCrime.getId());
             startActivityForResult(intent, CRIME_REQUEST_CODE);
         }
     
@@ -122,7 +121,6 @@ public class CrimeListFragment extends Fragment {
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        Log.d(TAG, "onActivityResult: " + resultCode);
         if (resultCode != Activity.RESULT_OK) {
             return;
         }

@@ -31,16 +31,15 @@ public class CrimeFragment extends Fragment {
     private EditText mTitleField;
     private Button mDateButton;
     private CheckBox mSolvedCheckBoxk;
+    private Button mGoToFisrtButton;
+    private Button mGoToLastButton;
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         UUID crimeId = (UUID)getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getContext()).getCrime(crimeId);
-        
-        Intent data = new Intent();
-        data.putExtra(ARG_CRIME_ID, crimeId);
-        getActivity().setResult(Activity.RESULT_OK, data);
+        setRetainInstance(true);
     }
     
     @Nullable
@@ -52,7 +51,8 @@ public class CrimeFragment extends Fragment {
         mTitleField = (EditText)v.findViewById(R.id.crime_title);
         mDateButton = (Button)v.findViewById(R.id.crime_date);
         mSolvedCheckBoxk = (CheckBox)v.findViewById(R.id.crime_solved);
-    
+        mGoToFisrtButton = (Button)v.findViewById(R.id.jump_to_first);
+        mGoToLastButton = (Button)v.findViewById(R.id.jump_to_last);
         
         mTitleField.setText(mCrime.getTitle());
         mDateButton.setText(mCrime.getDate().toString());
@@ -70,7 +70,9 @@ public class CrimeFragment extends Fragment {
     
             @Override
             public void afterTextChanged(Editable s) {
-        
+                Intent data = new Intent();
+                data.putExtra(ARG_CRIME_ID, mCrime.getId());
+                getActivity().setResult(Activity.RESULT_OK, data);
             }
         });
         mSolvedCheckBoxk.setChecked(mCrime.isSolved());
@@ -84,6 +86,13 @@ public class CrimeFragment extends Fragment {
         return v;
     }
     
+    @Override
+    public void onResume() {
+        super.onResume();
+        mOnNavButtonListener.onNavButton(mGoToFisrtButton, mGoToLastButton);
+    
+    }
+    
     public static CrimeFragment newInstance(UUID crimeId) {
         Bundle args = new Bundle();
         args.putSerializable(ARG_CRIME_ID, crimeId);
@@ -95,5 +104,14 @@ public class CrimeFragment extends Fragment {
     
     public static UUID getChangedCrimeId(Intent data) {
         return (UUID)data.getSerializableExtra(ARG_CRIME_ID);
+    }
+    
+    private OnNavButtonListener mOnNavButtonListener;
+    public interface OnNavButtonListener {
+        void onNavButton(Button first, Button last);
+    }
+    
+    public void setNavButtonListener(OnNavButtonListener listener) {
+        mOnNavButtonListener = listener;
     }
 }
