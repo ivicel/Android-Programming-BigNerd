@@ -30,6 +30,7 @@ public class CrimeListFragment extends Fragment {
     private CrimeAdapter mAdapter;
     private int mChangedCrimePosition;
     
+    
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
