@@ -4,8 +4,16 @@
     <string name="crime_title_label">Title</string>
     <string name="crime_details_label">Details</string>
     <string name="crime_solved_label">Solved</string>
-    <string name="jump_to_first">Go Frist</string>
-    <string name="jump_to_last">Go Last</string>
     <string name="date_picker_title">Date of crime:</string>
+    <string name="new_crime">New Crime</string>
+    <string name="show_subtitle">Show Subtitle</string>
+    <string name="hide_subtitle">Hide Subtitle</string>
+    <plurals name="subtitle_format">
+        <item quantity="zero">%1$d crime</item>
+        <item quantity="one">%1$d crime</item>
+        <item quantity="other">%1$d crimes</item>
+    </plurals>
     <string name="pick_time">Pick time</string>
+    <string name="delete_crime">Delete</string>
+    <string name="empty_crime_text">There is no crime, click to add a new one.</string>
 </resources>

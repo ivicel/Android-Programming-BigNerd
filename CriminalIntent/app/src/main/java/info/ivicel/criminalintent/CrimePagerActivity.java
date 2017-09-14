@@ -2,15 +2,13 @@ package info.ivicel.criminalintent;
 
 import android.content.Context;
 import android.content.Intent;
+import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,8 +16,10 @@ import java.util.UUID;
 public class CrimePagerActivity extends AppCompatActivity {
     private static final String TAG = "CrimePagerActivity";
     private static final String EXTRA_CRIME_ID = "info.ivicel.criminalintent.crime_id";
+    public static final String EXTRA_SUBTITLE_VISIBLE = "info.ivicel.criminalintent.subtitle_visible";
     private ViewPager mViewPager;
     private List<Crime> mCrimes;
+    private boolean mSubtitleVisible;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,39 +31,9 @@ public class CrimePagerActivity extends AppCompatActivity {
         FragmentManager fm = getSupportFragmentManager();
         mViewPager.setAdapter(new FragmentStatePagerAdapter(fm) {
             @Override
-            public Fragment getItem(final int position) {
+            public Fragment getItem(int position) {
                 Crime crime = mCrimes.get(position);
-                Fragment fragment = CrimeFragment.newInstance(crime.getId());
-                
-                ((CrimeFragment)fragment).setNavButtonListener(
-                        new CrimeFragment.OnNavButtonListener() {
-                    @Override
-                    public void onNavButton(Button first, Button last) {
-                        if (position == 0) {
-                            first.setEnabled(false);
-                        }
-
-                        if (position == (mCrimes.size() - 1)) {
-                            last.setEnabled(false);
-                        }
-                        
-                        first.setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                jumpToFirstItem();
-                            }
-                        });
-                        
-                        last.setOnClickListener(new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                jumpToLastItem();
-                            }
-                        });
-                    }
-                });
-                
-                return fragment;
+                return CrimeFragment.newInstance(crime.getId());
             }
     
             @Override
@@ -71,8 +41,10 @@ public class CrimePagerActivity extends AppCompatActivity {
                 return mCrimes.size();
             }
         });
-    
-        UUID crimeId = (UUID)getIntent().getSerializableExtra(EXTRA_CRIME_ID);
+        
+        Intent intent = getIntent();
+        mSubtitleVisible = intent.getBooleanExtra(EXTRA_SUBTITLE_VISIBLE, false);
+        UUID crimeId = (UUID)intent.getSerializableExtra(EXTRA_CRIME_ID);
         for (int i = 0; i < mCrimes.size(); i++) {
             if (mCrimes.get(i).getId().equals(crimeId)) {
                 mViewPager.setCurrentItem(i);
@@ -81,17 +53,20 @@ public class CrimePagerActivity extends AppCompatActivity {
         }
     }
     
-    public static Intent newIntent(Context packageContext, UUID crimeId) {
-        Intent intent = new Intent(packageContext, CrimePagerActivity.class);
-        intent.putExtra(EXTRA_CRIME_ID, crimeId);
+    @Nullable
+    @Override
+    public Intent getParentActivityIntent() {
+        Intent intent = super.getParentActivityIntent();
+        if (intent != null) {
+            intent.putExtra(EXTRA_SUBTITLE_VISIBLE, mSubtitleVisible);
+        }
         return intent;
     }
     
-    public void jumpToFirstItem() {
-        mViewPager.setCurrentItem(0, true);
-    }
-    
-    public void jumpToLastItem() {
-        mViewPager.setCurrentItem(mCrimes.size() - 1, true);
+    public static Intent newIntent(Context packageContext, UUID crimeId, boolean subtitleVisible) {
+        Intent intent = new Intent(packageContext, CrimePagerActivity.class);
+        intent.putExtra(EXTRA_CRIME_ID, crimeId);
+        intent.putExtra(EXTRA_SUBTITLE_VISIBLE, subtitleVisible);
+        return intent;
     }
 }
