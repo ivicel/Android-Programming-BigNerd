@@ -2,7 +2,6 @@ package info.ivicel.criminalintent;
 
 import android.content.Context;
 import android.content.Intent;
-import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
@@ -16,10 +15,8 @@ import java.util.UUID;
 public class CrimePagerActivity extends AppCompatActivity {
     private static final String TAG = "CrimePagerActivity";
     private static final String EXTRA_CRIME_ID = "info.ivicel.criminalintent.crime_id";
-    public static final String EXTRA_SUBTITLE_VISIBLE = "info.ivicel.criminalintent.subtitle_visible";
     private ViewPager mViewPager;
     private List<Crime> mCrimes;
-    private boolean mSubtitleVisible;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,10 +38,8 @@ public class CrimePagerActivity extends AppCompatActivity {
                 return mCrimes.size();
             }
         });
-        
-        Intent intent = getIntent();
-        mSubtitleVisible = intent.getBooleanExtra(EXTRA_SUBTITLE_VISIBLE, false);
-        UUID crimeId = (UUID)intent.getSerializableExtra(EXTRA_CRIME_ID);
+    
+        UUID crimeId = (UUID)getIntent().getSerializableExtra(EXTRA_CRIME_ID);
         for (int i = 0; i < mCrimes.size(); i++) {
             if (mCrimes.get(i).getId().equals(crimeId)) {
                 mViewPager.setCurrentItem(i);
@@ -53,20 +48,9 @@ public class CrimePagerActivity extends AppCompatActivity {
         }
     }
     
-    @Nullable
-    @Override
-    public Intent getParentActivityIntent() {
-        Intent intent = super.getParentActivityIntent();
-        if (intent != null) {
-            intent.putExtra(EXTRA_SUBTITLE_VISIBLE, mSubtitleVisible);
-        }
-        return intent;
-    }
-    
-    public static Intent newIntent(Context packageContext, UUID crimeId, boolean subtitleVisible) {
+    public static Intent newIntent(Context packageContext, UUID crimeId) {
         Intent intent = new Intent(packageContext, CrimePagerActivity.class);
         intent.putExtra(EXTRA_CRIME_ID, crimeId);
-        intent.putExtra(EXTRA_SUBTITLE_VISIBLE, subtitleVisible);
         return intent;
     }
 }

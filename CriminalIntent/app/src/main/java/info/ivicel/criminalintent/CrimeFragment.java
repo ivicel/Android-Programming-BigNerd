@@ -2,6 +2,7 @@ package info.ivicel.criminalintent;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -19,7 +20,7 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 
-import java.sql.Date;
+import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -29,7 +30,6 @@ import java.util.UUID;
 public class CrimeFragment extends Fragment {
     private static final String TAG = "CrimeFragment";
     private static final String ARG_CRIME_ID = "crime_id";
-    private static final String ARG_SUBTITLE_VISIBLE = "subtitle_visible";
     private static final String DIALOG_DATE = "DialogDate";
     private static final int REQUEST_DATE = 0;
     
@@ -58,7 +58,6 @@ public class CrimeFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
         UUID crimeId = (UUID)getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getContext()).getCrime(crimeId);
         setHasOptionsMenu(true);
@@ -118,6 +117,7 @@ public class CrimeFragment extends Fragment {
     public static CrimeFragment newInstance(UUID crimeId) {
         Bundle args = new Bundle();
         args.putSerializable(ARG_CRIME_ID, crimeId);
+    
         CrimeFragment fragment = new CrimeFragment();
         fragment.setArguments(args);
         return fragment;
@@ -135,7 +135,14 @@ public class CrimeFragment extends Fragment {
         }
     }
     
+    @Override
+    public void onPause() {
+        super.onPause();
+        CrimeLab.get(getContext()).updateCrime(mCrime);
+    }
+    
     private void updateDate() {
         mDateButton.setText(mCrime.getDate().toString());
     }
+    
 }
