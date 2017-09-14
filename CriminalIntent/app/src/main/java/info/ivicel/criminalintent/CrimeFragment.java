@@ -2,6 +2,7 @@ package info.ivicel.criminalintent;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
@@ -16,7 +17,7 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 
-import java.sql.Date;
+import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -113,7 +114,14 @@ public class CrimeFragment extends Fragment {
         }
     }
     
+    @Override
+    public void onPause() {
+        super.onPause();
+        CrimeLab.get(getContext()).updateCrime(mCrime);
+    }
+    
     private void updateDate() {
         mDateButton.setText(mCrime.getDate().toString());
     }
+    
 }
