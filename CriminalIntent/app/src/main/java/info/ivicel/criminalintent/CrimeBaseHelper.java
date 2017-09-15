@@ -26,13 +26,14 @@ public class CrimeBaseHelper extends SQLiteOpenHelper {
                 CrimeTable.Cols.UUID + "," +
                 CrimeTable.Cols.TITLE + "," +
                 CrimeTable.Cols.DATE + "," +
-                CrimeTable.Cols.SOLVED +
+                CrimeTable.Cols.SOLVED + "," +
+                CrimeTable.Cols.SUSPECT + "," +
+                CrimeTable.Cols.CONTACT_LOOUP_KEY +
                 ")"
         );
     }
     
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        
     }
 }
