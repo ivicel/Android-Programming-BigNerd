@@ -2,17 +2,23 @@ package info.ivicel.criminalintent;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
+import android.support.v4.content.FileProvider;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,9 +26,13 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import java.io.File;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -35,6 +45,7 @@ public class CrimeFragment extends Fragment {
     private static final String DIALOG_DATE = "DialogDate";
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
+    private static final int REQUEST_TAKE_PHOTO = 2;
     
     private Crime mCrime;
     private EditText mTitleField;
@@ -42,12 +53,16 @@ public class CrimeFragment extends Fragment {
     private CheckBox mSolvedCheckBox;
     private Button mReportButton;
     private Button mSuspectButton;
+    private ImageView mPhotoView;
+    private ImageButton mPhotoButton;
+    private File mPhotoFile;
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         UUID crimeId = (UUID)getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getContext()).getCrime(crimeId);
+        mPhotoFile = CrimeLab.get(getContext()).getPhotoFile(mCrime);
     }
     
     @Nullable
@@ -61,7 +76,8 @@ public class CrimeFragment extends Fragment {
         mSolvedCheckBox = (CheckBox)v.findViewById(R.id.crime_solved);
         mReportButton = (Button)v.findViewById(R.id.crime_report);
         mSuspectButton = (Button)v.findViewById(R.id.crime_suspect);
-        
+        mPhotoButton = (ImageButton)v.findViewById(R.id.crime_camera);
+        mPhotoView = (ImageView)v.findViewById(R.id.crime_photo);
     
         mTitleField.setText(mCrime.getTitle());
         updateDate();
@@ -130,6 +146,32 @@ public class CrimeFragment extends Fragment {
             mReportButton.setText(mCrime.getSuspect());
         }
         
+        final Intent imageCapture = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (mPhotoFile == null ||
+                imageCapture.resolveActivity(getActivity().getPackageManager()) == null) {
+            mPhotoButton.setEnabled(false);
+        }
+        mPhotoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Uri uri = FileProvider.getUriForFile(getContext(),
+                        "info.ivicel.criminalintent.fileprovider", mPhotoFile);
+                imageCapture.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+                List<ResolveInfo> resolveActivities = getActivity().getPackageManager()
+                        .queryIntentActivities(imageCapture, PackageManager.MATCH_DEFAULT_ONLY);
+                /* to backward compatible with kitkat and lower version
+                 * we should grant the permission
+                 */
+                for (ResolveInfo resolveActivity : resolveActivities) {
+                    getContext().grantUriPermission(resolveActivity.activityInfo.packageName,
+                            uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                }
+                startActivityForResult(imageCapture, REQUEST_TAKE_PHOTO);
+            }
+        });
+        
+        updatePhoto();
+        
         return v;
     }
     
@@ -160,6 +202,15 @@ public class CrimeFragment extends Fragment {
             } finally {
                 c.close();
             }
+        } else if (requestCode == REQUEST_TAKE_PHOTO) {
+            /*
+             * remove the permission, otherwise other apps will take this permission
+             * util reboot the device
+             */
+            Uri uri = FileProvider.getUriForFile(getContext(),
+                    "info.ivicel.criminalintent.fileprovider", mPhotoFile);
+            getContext().revokeUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            updatePhoto();
         }
     }
     
@@ -200,8 +251,16 @@ public class CrimeFragment extends Fragment {
             suspect = getString(R.string.crime_report_suspect);
         }
     
-        String report = getString(R.string.crime_report, mCrime.getTitle(),
+        return getString(R.string.crime_report, mCrime.getTitle(),
                 dateString, solvedString, suspect);
-        return report;
+    }
+    
+    private void updatePhoto() {
+        if (mPhotoFile == null || !mPhotoFile.exists()) {
+            mPhotoView.setImageDrawable(null);
+        } else {
+            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
+            mPhotoView.setImageBitmap(bitmap);
+        }
     }
 }
