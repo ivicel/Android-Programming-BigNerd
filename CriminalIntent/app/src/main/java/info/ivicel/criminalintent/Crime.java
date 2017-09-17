@@ -1,5 +1,7 @@
 package info.ivicel.criminalintent;
 
+import android.util.Log;
+
 import java.util.Date;
 import java.util.UUID;
 

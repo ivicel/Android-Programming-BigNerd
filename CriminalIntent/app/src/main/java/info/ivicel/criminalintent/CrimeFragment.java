@@ -1,6 +1,7 @@
 package info.ivicel.criminalintent;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
@@ -56,6 +57,7 @@ public class CrimeFragment extends Fragment {
     private ImageView mPhotoView;
     private ImageButton mPhotoButton;
     private File mPhotoFile;
+    private Callbacks mCallbacks;
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -101,6 +103,7 @@ public class CrimeFragment extends Fragment {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 mCrime.setTitle(s.toString());
+                updateCrime();
             }
     
             @Override
@@ -113,6 +116,7 @@ public class CrimeFragment extends Fragment {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 mCrime.setSolved(isChecked);
+                updateCrime();
             }
         });
         
@@ -143,7 +147,7 @@ public class CrimeFragment extends Fragment {
         });
     
         if (mCrime.getSuspect() != null) {
-            mReportButton.setText(mCrime.getSuspect());
+            mSuspectButton.setText(mCrime.getSuspect());
         }
         
         final Intent imageCapture = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -184,6 +188,7 @@ public class CrimeFragment extends Fragment {
             Date date = (Date)data.getSerializableExtra(DatePickerFragment.EXTRA_DATE);
             mCrime.setDate(date);
             updateDate();
+            updateCrime();
         } else if (requestCode == REQUEST_CONTACT) {
             Uri contactUri = data.getData();
             String[] queryFields = new String[] {
@@ -199,6 +204,7 @@ public class CrimeFragment extends Fragment {
                 String suspect = c.getString(0);
                 mCrime.setSuspect(suspect);
                 mSuspectButton.setText(suspect);
+                updateCrime();
             } finally {
                 c.close();
             }
@@ -210,6 +216,7 @@ public class CrimeFragment extends Fragment {
             Uri uri = FileProvider.getUriForFile(getContext(),
                     "info.ivicel.criminalintent.fileprovider", mPhotoFile);
             getContext().revokeUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            updateCrime();
             updatePhoto();
         }
     }
@@ -217,7 +224,24 @@ public class CrimeFragment extends Fragment {
     @Override
     public void onPause() {
         super.onPause();
-        CrimeLab.get(getContext()).updateCrime(mCrime);
+        // CrimeLab.get(getContext()).updateCrime(mCrime);
+    }
+    
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        try {
+            mCallbacks = (Callbacks)context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.toString() +
+                    " must implement CrimeFragment.Callbacks");
+        }
+    }
+    
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mCallbacks = null;
     }
     
     public static CrimeFragment newInstance(UUID crimeId) {
@@ -262,5 +286,14 @@ public class CrimeFragment extends Fragment {
             Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
             mPhotoView.setImageBitmap(bitmap);
         }
+    }
+
+    public interface Callbacks {
+        void onCrimeUpdated(Crime crime);
+    }
+    
+    private void updateCrime() {
+        CrimeLab.get(getContext()).updateCrime(mCrime);
+        mCallbacks.onCrimeUpdated(mCrime);
     }
 }
