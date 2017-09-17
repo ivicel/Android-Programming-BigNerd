@@ -12,7 +12,8 @@ import android.os.Bundle;
 import java.util.List;
 import java.util.UUID;
 
-public class CrimePagerActivity extends AppCompatActivity {
+public class CrimePagerActivity extends AppCompatActivity
+        implements CrimeFragment.Callbacks {
     private static final String TAG = "CrimePagerActivity";
     private static final String EXTRA_CRIME_ID = "info.ivicel.criminalintent.crime_id";
     private ViewPager mViewPager;
@@ -47,6 +48,12 @@ public class CrimePagerActivity extends AppCompatActivity {
             }
         }
     }
+    
+    // when there is only one pane, we do nothing here
+    @Override
+    public void onCrimeUpdated(Crime crime) {}
+       
+    
     
     public static Intent newIntent(Context packageContext, UUID crimeId) {
         Intent intent = new Intent(packageContext, CrimePagerActivity.class);

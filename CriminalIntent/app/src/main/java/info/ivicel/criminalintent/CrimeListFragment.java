@@ -1,6 +1,7 @@
 package info.ivicel.criminalintent;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -8,6 +9,8 @@ import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.helper.ItemTouchHelper;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -31,7 +34,7 @@ public class CrimeListFragment extends Fragment {
     private RecyclerView mCrimeRecyclerView;
     private CrimeAdapter mAdapter;
     private boolean mSubtitleVisible;
-    
+    private Callbacks mCallBacks;
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -58,8 +61,8 @@ public class CrimeListFragment extends Fragment {
             case R.id.new_crime:
                 Crime crime = new Crime();
                 CrimeLab.get(getContext()).addCrime(crime);
-                Intent intent = CrimePagerActivity.newIntent(getContext(), crime.getId());
-                startActivity(intent);
+                updateUI();
+                mCallBacks.onCrimeSelected(crime);
                 return true;
             case R.id.show_subtitle:
                 mSubtitleVisible = !mSubtitleVisible;
@@ -83,7 +86,7 @@ public class CrimeListFragment extends Fragment {
             mSubtitleVisible = savedInstanceState.getBoolean(SAVE_SUBTITLE_VISIBLE);
         }
         
-        updateUI();
+        mDecoration.attachToRecyclerView(mCrimeRecyclerView);
         return v;
     }
     
@@ -99,7 +102,24 @@ public class CrimeListFragment extends Fragment {
         outState.putBoolean(SAVE_SUBTITLE_VISIBLE, mSubtitleVisible);
     }
     
-    private void updateUI() {
+    @Override
+    public void onAttach(Context context) {
+        super.onAttach(context);
+        try {
+            mCallBacks = (Callbacks)context;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(context.getClass().getSimpleName() +
+                    " must implement CriminalFragment.Callbacks");
+        }
+    }
+    
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mCallBacks = null;
+    }
+    
+    public void updateUI() {
         CrimeLab crimeLab = CrimeLab.get(getContext());
         List<Crime> crimes = crimeLab.getCrimes();
     
@@ -132,20 +152,24 @@ public class CrimeListFragment extends Fragment {
     
         @Override
         public void onClick(View v) {
-            Intent intent = CrimePagerActivity.newIntent(getContext(), mCrime.getId());
-            startActivity(intent);
+            mCallBacks.onCrimeSelected(mCrime);
         }
     
         public void bind(Crime crime) {
             mCrime = crime;
             mTitleTextView.setText(crime.getTitle());
             mDateTextView.setText(crime.getDate().toString());
-            mSolvedImageView.setVisibility(mCrime.isSolved() ? View.VISIBLE : View.GONE);
+            mSolvedImageView.setVisibility(crime.isSolved() ? View.VISIBLE : View.GONE);
+        }
+        
+        public Crime getCrime() {
+            return mCrime;
         }
     }
     
     private class CrimeAdapter extends RecyclerView.Adapter<CrimeHolder> {
         private List<Crime> mCrimes;
+        
     
         public CrimeAdapter(List<Crime> crimes) {
             mCrimes = crimes;
@@ -173,6 +197,10 @@ public class CrimeListFragment extends Fragment {
         public void setCrimes(List<Crime> crimes) {
             mCrimes = crimes;
         }
+    
+        public void removeCrime(int position) {
+            mCrimes.remove(position);
+        }
     }
 
     private void updateSubtitle() {
@@ -183,5 +211,37 @@ public class CrimeListFragment extends Fragment {
             subtitle = null;
         }
         ((AppCompatActivity)getActivity()).getSupportActionBar().setSubtitle(subtitle);
+    }
+
+    public interface Callbacks {
+        void onCrimeSelected(Crime crime);
+    }
+    
+    private ItemTouchHelper mDecoration = new ItemTouchHelper(
+            new ItemTouchHelper.Callback() {
+                @Override
+                public int getMovementFlags(RecyclerView recyclerView,
+                        RecyclerView.ViewHolder viewHolder) {
+                    return makeMovementFlags(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT);
+                }
+                
+                @Override
+                public boolean onMove(RecyclerView recyclerView,
+                        RecyclerView.ViewHolder viewHolder,
+                        RecyclerView.ViewHolder target) {
+                    return false;
+                }
+                
+                @Override
+                public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                    removeItem((CrimeHolder)viewHolder);
+                }
+            });
+    
+    private void removeItem(CrimeHolder viewHolder) {
+        int position = viewHolder.getAdapterPosition();
+        CrimeLab.get(getContext()).deleteCrime(viewHolder.getCrime());
+        mAdapter.removeCrime(position);
+        mAdapter.notifyItemRemoved(position);
     }
 }
