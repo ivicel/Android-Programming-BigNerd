@@ -3,7 +3,6 @@ package info.ivicel.criminalintent;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.database.Cursor;
@@ -18,7 +17,6 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.content.FileProvider;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -32,8 +30,10 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -254,7 +254,7 @@ public class CrimeFragment extends Fragment {
     }
     
     private void updateDate() {
-        mDateButton.setText(mCrime.getDate().toString());
+        mDateButton.setText(getFormatDate());
     }
     
     private String getCrimeReport() {
@@ -265,9 +265,7 @@ public class CrimeFragment extends Fragment {
             solvedString = getString(R.string.crime_report_unsolved);
         }
     
-        String dateFormat = "EEE, MMM dd";
-        String dateString = DateFormat.format(dateFormat, mCrime.getDate()).toString();
-        
+        String dateString = getFormatDate();
         String suspect = mCrime.getSuspect();
         if (suspect == null) {
             suspect = getString(R.string.crime_report_no_suspect);
@@ -295,5 +293,11 @@ public class CrimeFragment extends Fragment {
     private void updateCrime() {
         CrimeLab.get(getContext()).updateCrime(mCrime);
         mCallbacks.onCrimeUpdated(mCrime);
+    }
+    
+    private String getFormatDate() {
+        String dateFormat = "EEE, MMM dd";
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(dateFormat, Locale.getDefault());
+        return simpleDateFormat.format(mCrime.getDate());
     }
 }
