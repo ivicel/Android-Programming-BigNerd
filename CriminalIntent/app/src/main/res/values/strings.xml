@@ -20,7 +20,4 @@ The crime was discovered on %2$s. %3$s, and %4$s </string>
     <string name="crime_report_subject">CriminalIntent Crime Report</string>
     <string name="send_report">Send crime report via</string>
     <string name="no_contact_respond">there is no a contact app</string>
-    <string name="delete_crime">Deleter</string>
-    <string name="pick_time">Pick time</string>
-    <string name="call_suspect">Call Suspect</string>
 </resources>

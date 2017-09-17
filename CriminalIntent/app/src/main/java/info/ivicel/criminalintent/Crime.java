@@ -13,7 +13,6 @@ public class Crime {
     private String mTitle;
     private boolean mSolved;
     private String mSuspect;
-    private String mLookupKey;
     
     public Crime() {
         this(UUID.randomUUID());
@@ -60,11 +59,7 @@ public class Crime {
         mSuspect = suspect;
     }
     
-    public String getLookupKey() {
-        return mLookupKey;
-    }
-    
-    public void setLookupKey(String lookupKey) {
-        mLookupKey = lookupKey;
+    public String getPhotoFilename() {
+        return "IMG" + mId.toString() + ".jpg";
     }
 }

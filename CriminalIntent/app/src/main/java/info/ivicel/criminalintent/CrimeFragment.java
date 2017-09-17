@@ -1,40 +1,48 @@
 package info.ivicel.criminalintent;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
-import android.content.ContentResolver;
-import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.Point;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
-import android.support.v4.app.ShareCompat;
-import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.format.DateFormat;
+import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
+import android.view.ViewTreeObserver;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.Toast;
-import android.provider.ContactsContract.CommonDataKinds.Phone;
 
-import java.util.ArrayList;
+import java.io.File;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -49,8 +57,7 @@ public class CrimeFragment extends Fragment {
     private static final String DIALOG_DATE = "DialogDate";
     private static final int REQUEST_DATE = 0;
     private static final int REQUEST_CONTACT = 1;
-    private static final int REQUEST_READ_CONTACT_PERMISSION = 1;
-    private static final String ARG_PHONE_LIST = "phone_list";
+    private static final int REQUEST_TAKE_PHOTO = 2;
     
     private Crime mCrime;
     private EditText mTitleField;
@@ -58,13 +65,17 @@ public class CrimeFragment extends Fragment {
     private CheckBox mSolvedCheckBox;
     private Button mReportButton;
     private Button mSuspectButton;
-    private Button mCallSuspectButton;
+    private ImageView mPhotoView;
+    private ImageButton mPhotoButton;
+    private File mPhotoFile;
+    private ViewTreeObserver mViewTreeObserver;
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         UUID crimeId = (UUID)getArguments().getSerializable(ARG_CRIME_ID);
         mCrime = CrimeLab.get(getContext()).getCrime(crimeId);
+        mPhotoFile = CrimeLab.get(getContext()).getPhotoFile(mCrime);
     }
     
     @Nullable
@@ -78,7 +89,8 @@ public class CrimeFragment extends Fragment {
         mSolvedCheckBox = (CheckBox)v.findViewById(R.id.crime_solved);
         mReportButton = (Button)v.findViewById(R.id.crime_report);
         mSuspectButton = (Button)v.findViewById(R.id.crime_suspect);
-        mCallSuspectButton = (Button)v.findViewById(R.id.call_suspect);
+        mPhotoButton = (ImageButton)v.findViewById(R.id.crime_camera);
+        mPhotoView = (ImageView)v.findViewById(R.id.crime_photo);
     
         mTitleField.setText(mCrime.getTitle());
         updateDate();
@@ -120,13 +132,12 @@ public class CrimeFragment extends Fragment {
         mReportButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                ShareCompat.IntentBuilder.from(getActivity())
-                        .setChooserTitle(R.string.send_report)
-                        .setSubject(getResources().getString(R.string.crime_report_subject))
-                        .setText(getCrimeReport())
-                        .setType("text/plain")
-                        .startChooser();
-                        
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("text/plain");
+                i.putExtra(Intent.EXTRA_TEXT, getCrimeReport());
+                i.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.crime_report_subject));
+                i = Intent.createChooser(i, getString(R.string.send_report));
+                startActivity(i);
             }
         });
         
@@ -145,22 +156,46 @@ public class CrimeFragment extends Fragment {
         });
     
         if (mCrime.getSuspect() != null) {
-            Log.d(TAG, "onCreateView: " + mCrime.getSuspect());
-            Log.d(TAG, "onCreateView: " + mCrime.getLookupKey());
-            mSuspectButton.setText(mCrime.getSuspect());
+            mReportButton.setText(mCrime.getSuspect());
         }
         
-        mCallSuspectButton.setOnClickListener(new View.OnClickListener() {
+        final Intent imageCapture = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (mPhotoFile == null ||
+                imageCapture.resolveActivity(getActivity().getPackageManager()) == null) {
+            mPhotoButton.setEnabled(false);
+        }
+        mPhotoButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mCrime.getLookupKey() == null) {
-                    Toast.makeText(getContext(), "no suspect is selected", Toast.LENGTH_SHORT).show();
-                    return;
+                Uri uri = FileProvider.getUriForFile(getContext(),
+                        "info.ivicel.criminalintent.fileprovider", mPhotoFile);
+                imageCapture.putExtra(MediaStore.EXTRA_OUTPUT, uri);
+                List<ResolveInfo> resolveActivities = getActivity().getPackageManager()
+                        .queryIntentActivities(imageCapture, PackageManager.MATCH_DEFAULT_ONLY);
+                /* to backward compatible with kitkat and lower version
+                 * we should grant the permission
+                 */
+                for (ResolveInfo resolveActivity : resolveActivities) {
+                    getContext().grantUriPermission(resolveActivity.activityInfo.packageName,
+                            uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 }
-                reqeuestRuntimePermission();
+                startActivityForResult(imageCapture, REQUEST_TAKE_PHOTO);
             }
         });
         
+        mPhotoView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                PhotoDetailFragment fragment = PhotoDetailFragment.newInstance(
+                        mPhotoFile.getPath());
+                fragment.show(getFragmentManager(), "photo_detail_fragment");
+            }
+            
+        });
+    
+        mViewTreeObserver = mPhotoView.getViewTreeObserver();
+        mViewTreeObserver.addOnGlobalLayoutListener(mPhotoViewLayoutListener);
+        updatePhoto();
         return v;
     }
     
@@ -176,8 +211,7 @@ public class CrimeFragment extends Fragment {
         } else if (requestCode == REQUEST_CONTACT) {
             Uri contactUri = data.getData();
             String[] queryFields = new String[] {
-                    ContactsContract.Contacts.DISPLAY_NAME,
-                    ContactsContract.Contacts.LOOKUP_KEY
+                    ContactsContract.Contacts.DISPLAY_NAME
             };
             Cursor c = getActivity().getContentResolver().query(contactUri, queryFields,
                     null, null, null);
@@ -186,16 +220,21 @@ public class CrimeFragment extends Fragment {
             }
             try {
                 c.moveToFirst();
-                String suspect = c.getString(c.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME));
-                String lookup = c.getString(c.getColumnIndex(ContactsContract.Contacts.LOOKUP_KEY));
-                Log.d(TAG, "onActivityResult: " + lookup);
+                String suspect = c.getString(0);
                 mCrime.setSuspect(suspect);
-                mCrime.setLookupKey(lookup);
-                CrimeLab.get(getContext()).updateCrime(mCrime);
                 mSuspectButton.setText(suspect);
             } finally {
                 c.close();
             }
+        } else if (requestCode == REQUEST_TAKE_PHOTO) {
+            /*
+             * remove the permission, otherwise other apps will take this permission
+             * util reboot the device
+             */
+            Uri uri = FileProvider.getUriForFile(getContext(),
+                    "info.ivicel.criminalintent.fileprovider", mPhotoFile);
+            getContext().revokeUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            // updatePhoto();
         }
     }
     
@@ -206,20 +245,10 @@ public class CrimeFragment extends Fragment {
     }
     
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-            @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case REQUEST_READ_CONTACT_PERMISSION:
-                if (grantResults.length > 0 && grantResults[0] ==
-                        PackageManager.PERMISSION_GRANTED) {
-                    callCrimeSuspect();
-                } else {
-                    showDeniedCallPermission();
-                }
-                break;
-            default:
-                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-                break;
+    public void onDestroy() {
+        super.onDestroy();
+        if (mViewTreeObserver.isAlive()) {
+            mViewTreeObserver.removeOnGlobalLayoutListener(mPhotoViewLayoutListener);
         }
     }
     
@@ -254,78 +283,69 @@ public class CrimeFragment extends Fragment {
             suspect = getString(R.string.crime_report_suspect);
         }
     
-        String report = getString(R.string.crime_report, mCrime.getTitle(),
+        return getString(R.string.crime_report, mCrime.getTitle(),
                 dateString, solvedString, suspect);
-        return report;
     }
     
-    private void callCrimeSuspect() {
-        List<String> phoneList = new ArrayList<>();
-        ContentResolver resolver = getActivity().getContentResolver();
-        Cursor cursor = resolver.query(Phone.CONTENT_URI, new String[] {Phone.NUMBER},
-                Phone.LOOKUP_KEY + " = ?", new String[] {mCrime.getLookupKey()}, null, null);
-        if (cursor == null || cursor.getCount() == 0) {
-            return;
-        }
-        try {
-            cursor.moveToFirst();
-            while (!cursor.isAfterLast()) {
-                String phoneNumber = cursor.getString(cursor.getColumnIndex(
-                        Phone.NUMBER));
-                cursor.moveToNext();
-                phoneList.add(phoneNumber);
-            }
-        } finally {
-            cursor.close();
-        }
-        Bundle args = new Bundle();
-        args.putStringArrayList(ARG_PHONE_LIST, (ArrayList<String>)phoneList);
-        PhoneNumberFragment fragment = new PhoneNumberFragment();
-        fragment.setArguments(args);
-        fragment.show(getFragmentManager(), "phone_fragment");
-    }
-    
-    private void showDeniedCallPermission() {
-        Toast.makeText(getContext(), "You don't have permission to make a call",
-                Toast.LENGTH_SHORT).show();
-    }
-    
-    private void reqeuestRuntimePermission() {
-        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.READ_CONTACTS) !=
-                PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {Manifest.permission.READ_CONTACTS},
-                    REQUEST_READ_CONTACT_PERMISSION);
+    private void updatePhoto() {
+        if (mPhotoFile == null || !mPhotoFile.exists()) {
+            mPhotoView.setImageDrawable(null);
         } else {
-            callCrimeSuspect();
+            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), getActivity());
+            mPhotoView.setImageBitmap(bitmap);
         }
     }
     
-    public static class PhoneNumberFragment extends DialogFragment {
-        private List<String> mPhoneList;
+    private void updatePhoto(int width, int height) {
+        if (mPhotoFile == null || !mPhotoFile.exists()) {
+            mPhotoView.setImageDrawable(null);
+        } else {
+            Bitmap bitmap = PictureUtils.getScaledBitmap(mPhotoFile.getPath(), width, height);
+            mPhotoView.setImageBitmap(bitmap);
+        }
+    }
+    
+    public static class PhotoDetailFragment extends DialogFragment {
+        private static final String ARG_PHOTO_DETAIL = "photo_detail";
+        private String mPhotoPath;
         
         @Override
         public void onCreate(@Nullable Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-    
-            mPhoneList = getArguments().getStringArrayList(ARG_PHONE_LIST);
+            mPhotoPath = getArguments().getString(ARG_PHOTO_DETAIL);
+            setStyle(STYLE_NO_TITLE, 0);
         }
     
-        @NonNull
+        @Nullable
         @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            return new AlertDialog.Builder(getContext())
-                    .setTitle("Select a phone number")
-                    .setAdapter(new ArrayAdapter<>(getContext(),
-                                    android.R.layout.simple_list_item_1, mPhoneList),
-                            new DialogInterface.OnClickListener() {
-                                @Override
-                                public void onClick(DialogInterface dialog, int which) {
-                                    Intent i = new Intent(Intent.ACTION_DIAL);
-                                    i.setData(Uri.parse("tel:" + mPhoneList.get(which)));
-                                    startActivity(i);
-                                }
-                            }
-                    ).create();
+        public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
+                @Nullable Bundle savedInstanceState) {
+            Bitmap bm = PictureUtils.getScaledBitmap(mPhotoPath, getActivity());
+            ImageView image = new ImageView(getContext());
+            image.setImageBitmap(bm);
+            image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+            return image;
+        }
+        
+        public static PhotoDetailFragment newInstance(String photoPath) {
+            Bundle args = new Bundle();
+            args.putString(ARG_PHOTO_DETAIL, photoPath);
+            PhotoDetailFragment fragment = new PhotoDetailFragment();
+            fragment.setArguments(args);
+            return fragment;
         }
     }
+    
+    private ViewTreeObserver.OnGlobalLayoutListener mPhotoViewLayoutListener =
+            new ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override
+                public void onGlobalLayout() {
+                    int width = mPhotoView.getWidth();
+                    int height = mPhotoView.getHeight();
+                    updatePhoto(width, height);
+                    DisplayMetrics m = new DisplayMetrics();
+                    getActivity().getWindow().getWindowManager().getDefaultDisplay()
+                            .getMetrics(m);
+                }
+            };
 }
