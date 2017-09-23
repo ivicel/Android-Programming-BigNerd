@@ -17,6 +17,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import static info.ivicel.photogallery.BuildConfig.DEBUG;
+
 /**
  * Created by Ivicel on 21/09/2017.
  */
@@ -29,7 +31,9 @@ public class FlickrFetchr {
     public byte[] getUrlBytes(String urlSpec) throws IOException {
         URL url = new URL(urlSpec);
         HttpURLConnection connection = (HttpURLConnection)url.openConnection();
-    
+        if (DEBUG) {
+            Log.i(TAG, "Request recent content from " + url);
+        }
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             InputStream in = connection.getInputStream();
@@ -54,11 +58,7 @@ public class FlickrFetchr {
     public String getUrlString(String urlSpec) throws IOException {
         return new String(getUrlBytes(urlSpec));
     }
-    
-    public List<GalleryItem> fetchItems() {
-        return fetchItems(1);
-    }
-    
+        
     private void parseItems(List<GalleryItem> items, String jsonString)
             throws IOException, JSONException {
         Gson gson = new Gson();
