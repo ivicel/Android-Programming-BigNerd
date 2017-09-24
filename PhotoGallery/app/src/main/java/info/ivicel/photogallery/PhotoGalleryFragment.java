@@ -1,30 +1,36 @@
 package info.ivicel.photogallery;
 
-import android.app.ActivityManager;
+import android.annotation.TargetApi;
+import android.support.annotation.NonNull;
+import android.support.v4.view.MenuItemCompat;
+import android.support.v7.app.ActionBar;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.media.Image;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.DisplayMetrics;
+import android.support.v7.widget.Toolbar;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.ProgressBar;
+import android.widget.SearchView;
 import android.util.Log;
-import android.util.LruCache;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.widget.ImageView;
-import android.widget.TextView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,42 +45,94 @@ public class PhotoGalleryFragment extends Fragment {
     
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
-    private boolean mIsFetching;
-    private int mCurrentPage = 1;
-    private int mPrevSize;
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
-    private LruCache<String, Bitmap> mImageCache;
+    private ProgressBar mProgressBar;
+    private boolean mFetchItemStatus = false;
+    
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery, menu);
+    
+        final MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchView = (SearchView)searchItem.getActionView();
+    
+        searchView.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        searchView.setQueryHint("input what you want");
+    
+        MenuItemCompat.setOnActionExpandListener(searchItem,
+                new MenuItemCompat.OnActionExpandListener() {
+            @Override
+            public boolean onMenuItemActionExpand(MenuItem item) {
+                searchView.onActionViewExpanded();
+                searchView.requestFocus();
+                toggleInputMethodState();
+                return true;
+            }
+        
+            @Override
+            public boolean onMenuItemActionCollapse(MenuItem item) {
+                return true;
+            }
+        });
+        
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                QueryPreferences.setStoredQuery(getContext(), query);
+                updateItems();
+                toggleInputMethodState();
+                searchItem.collapseActionView();
+                showIndicator();
+                return true;
+            }
+    
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        
+        searchView.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String query = QueryPreferences.getStoredQuery(getContext());
+                searchView.setQuery(query, false);
+            }
+        });
+    }
+    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getContext(), null);
+                updateItems();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
+        setHasOptionsMenu(true);
+        updateItems();
+        
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
-        mThumbnailDownloader.setOnDownloadResponseListener(
-                new ThumbnailDownloader.OnDownloadResponseListener<PhotoHolder>() {
+        mThumbnailDownloader.setThumbnailDownloadListener(
+                new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
                     @Override
-                    public void onDownloadResponse(PhotoHolder target, String url, Bitmap bitmap) {
-                        mImageCache.put(url, bitmap);
-                        Drawable drawable = new BitmapDrawable(getResources(), bitmap);
-                        target.bindGalleryDrawable(drawable);
+                    public void onThumbnailDownloaded(PhotoHolder photoHolder, Bitmap thumbnail) {
+                        Drawable drawable = new BitmapDrawable(getResources(), thumbnail);
+                        photoHolder.bindDrawable(drawable);
                     }
                 });
         mThumbnailDownloader.start();
-        new FetchItemTask().execute(mCurrentPage);
-    
-        ActivityManager am = (ActivityManager)getContext()
-                .getSystemService(Context.ACTIVITY_SERVICE);
-        int size = am.getMemoryClass() / 8 * 1024 * 1024;
-        if (DEBUG) {
-            Log.d(TAG, "Image cache size is " + size);
-        }
-        mImageCache = new LruCache<String, Bitmap>(size) {
-            @Override
-            protected int sizeOf(String key, Bitmap value) {
-                return value.getByteCount();
-            }
-        };
+        mThumbnailDownloader.getLooper();
     }
     
     @Nullable
@@ -82,34 +140,24 @@ public class PhotoGalleryFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
+        final Toolbar toolbar = (Toolbar)v.findViewById(R.id.toolbar);
+        ((AppCompatActivity)getActivity()).setSupportActionBar(toolbar);
         mPhotoRecyclerView = (RecyclerView)v.findViewById(R.id.photo_recycler_view);
-        
-        mPhotoRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(
-                new ViewTreeObserver.OnGlobalLayoutListener() {
-                    @Override
-                    public void onGlobalLayout() {
-                        DisplayMetrics dm = new DisplayMetrics();
-                        getActivity().getWindowManager().getDefaultDisplay().getMetrics(dm);
-                        int countSpan = Math.round(dm.widthPixels / dm.density / 120);
-                        if (mPhotoRecyclerView.getViewTreeObserver().isAlive()) {
-                            mPhotoRecyclerView.setLayoutManager(
-                                    new GridLayoutManager(getContext(), countSpan));
-                            setupAdapter();
-                            mPhotoRecyclerView.getViewTreeObserver()
-                                    .removeOnGlobalLayoutListener(this);
-                        }
-                    }
-                });
-        mPhotoRecyclerView.addOnScrollListener(mListener);
-        
+        mProgressBar = (ProgressBar)v.findViewById(R.id.progress_bar);
+    
+        mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
+        setupAdapter();
+        showIndicator();
         return v;
     }
     
     @Override
-    public void onStop() {
-        super.onStop();
-        
-        mPhotoRecyclerView.removeOnScrollListener(mListener);
+    public void onDestroy() {
+        super.onDestroy();
+        mThumbnailDownloader.quit();
+        if (DEBUG) {
+            Log.e(TAG, "onDestroyView: quit" );
+        }
     }
     
     @Override
@@ -118,80 +166,79 @@ public class PhotoGalleryFragment extends Fragment {
         mThumbnailDownloader.clearQueue();
     }
     
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mThumbnailDownloader.quit();
-    }
-    
+    @NonNull
     public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
     }
     
-    private class FetchItemTask extends AsyncTask<Integer, Void, List<GalleryItem>> {
-        @Override
-        protected List<GalleryItem> doInBackground(Integer... params) {
-            mIsFetching = true;
-            return new FlickrFetchr().fetchItems(params[0]);
+    private class FetchItemTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+        private String mQuery;
+    
+        public FetchItemTask(String query) {
+            super();
+            mQuery = query;
         }
-        
+    
+        @Override
+        protected List<GalleryItem> doInBackground(Void... params) {
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos();
+            } else {
+                return new FlickrFetchr().searchPhotos(mQuery);
+            }
+        }
+    
         @Override
         protected void onPostExecute(List<GalleryItem> items) {
-            mPrevSize = mItems.size();
-            mItems.addAll(items);
+            mItems = items;
             setupAdapter();
-            mIsFetching = false;
+            if (mFetchItemStatus) {
+                hideIndicator();
+            }
         }
     }
-    
-    private class PhotoHolder extends RecyclerView.ViewHolder {
-        private ImageView mPhotoImageView;
         
+    private class PhotoHolder extends RecyclerView.ViewHolder {
+        private ImageView mItemImageView;
+    
         public PhotoHolder(View itemView) {
             super(itemView);
             
-            mPhotoImageView = (ImageView)itemView.findViewById(R.id.photo_image_view);
+            mItemImageView = (ImageView)itemView.findViewById(R.id.item_image_view);
         }
-        
-        public void bindGalleryDrawable(Drawable drawable) {
-            mPhotoImageView.setImageDrawable(drawable);
+    
+        public void bindDrawable(Drawable drawable) {
+            mItemImageView.setImageDrawable(drawable);
         }
     }
     
     private class PhototAdapter extends RecyclerView.Adapter<PhotoHolder> {
         private List<GalleryItem> mGalleryItems;
-        
+    
         public PhototAdapter(List<GalleryItem> galleryItems) {
             mGalleryItems = galleryItems;
         }
-        
+    
         @Override
         public PhotoHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            LayoutInflater inflater = LayoutInflater.from(getContext());
-            View view = inflater.inflate(R.layout.list_item_photo, parent, false);
+            View view = LayoutInflater.from(getContext()).inflate(R.layout.list_item_gallery,
+                    parent, false);
             return new PhotoHolder(view);
         }
-        
+
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
             GalleryItem item = mGalleryItems.get(position);
-            Drawable drawable;
-            
-            Bitmap imageBitmap = mImageCache.get(item.getUrl());
-            if (imageBitmap != null) {
-                drawable = new BitmapDrawable(getResources(), imageBitmap);
-                Log.e(TAG, "onBindViewHolder: get from cache");
+            Drawable placeholder;
+            if (Build.VERSION.SDK_INT >= 22) {
+                placeholder = getResources().getDrawable(R.drawable.bill_up_close, null);
             } else {
-                if (Build.VERSION.SDK_INT >= 22) {
-                    drawable = getResources().getDrawable(R.mipmap.ic_launcher_round, null);
-                } else {
-                    drawable = getResources().getDrawable(R.mipmap.ic_launcher_round);
-                }
-                mThumbnailDownloader.addToQueue(holder, item.getUrl());
+                placeholder = getResources().getDrawable(R.drawable.bill_up_close);
             }
-            holder.bindGalleryDrawable(drawable);
+            holder.bindDrawable(placeholder);
+            mThumbnailDownloader.queueThumbnail(holder, item.getUrl());
         }
-        
+    
         @Override
         public int getItemCount() {
             return mGalleryItems.size();
@@ -200,32 +247,33 @@ public class PhotoGalleryFragment extends Fragment {
     
     public void setupAdapter() {
         if (isAdded()) {
-            if (mPhotoRecyclerView.getAdapter() != null) {
-                mPhotoRecyclerView.getAdapter().notifyItemInserted(mPrevSize);
-            } else {
-                mPhotoRecyclerView.setAdapter(new PhototAdapter(mItems));
-            }
+            mPhotoRecyclerView.setAdapter(new PhototAdapter(mItems));
         }
     }
     
+    private void updateItems() {
+        String query = QueryPreferences.getStoredQuery(getContext());
+        new FetchItemTask(query).execute();
+    }
     
-    private RecyclerView.OnScrollListener mListener = new RecyclerView.OnScrollListener() {
-        @Override
-        public void onScrollStateChanged(RecyclerView recyclerView, int newState) {
-            super.onScrollStateChanged(recyclerView, newState);
-            int position = ((GridLayoutManager)recyclerView.getLayoutManager())
-                    .findLastVisibleItemPosition();
-            if (mIsFetching || newState != RecyclerView.SCROLL_STATE_IDLE ||
-                    position != mItems.size() - 1) {
-                return;
-            }
-            new FetchItemTask().execute(++mCurrentPage);
+    private void toggleInputMethodState() {
+        InputMethodManager ImeManager = (InputMethodManager)getContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (ImeManager.isActive()) {
+            ImeManager.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT,
+                    InputMethodManager.HIDE_NOT_ALWAYS);
         }
-        
-        @Override
-        public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
-            super.onScrolled(recyclerView, dx, dy);
-        }
-    };
+    }
     
+    private void showIndicator() {
+        mFetchItemStatus = true;
+        mProgressBar.setVisibility(View.VISIBLE);
+        mPhotoRecyclerView.setVisibility(View.GONE);
+    }
+    
+    private void hideIndicator() {
+        mFetchItemStatus = false;
+        mProgressBar.setVisibility(View.GONE);
+        mPhotoRecyclerView.setVisibility(View.VISIBLE);
+    }
 }
