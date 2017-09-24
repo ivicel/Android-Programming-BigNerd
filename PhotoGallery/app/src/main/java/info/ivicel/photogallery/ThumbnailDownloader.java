@@ -28,6 +28,7 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     private Handler mResponseHandler;
     private ThumbnailDownloadListener<T> mThumbnailDownloaderListener;
     
+    
     public interface ThumbnailDownloadListener<T> {
         void onThumbnailDownloaded(T photoHolder, Bitmap thumbnail);
     }
@@ -48,10 +49,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
     }
     
     public void queueThumbnail(T target, String url) {
-        if (DEBUG) {
-            Log.d(TAG, "Request " + url);
-        }
-        
         if (url == null) {
             mRequestMap.remove(target);
         } else {
@@ -68,9 +65,6 @@ public class ThumbnailDownloader<T> extends HandlerThread {
             public void handleMessage(Message msg) {
                 if (msg.what == MESSAGE_DOWNLOAD) {
                     T target = (T)msg.obj;
-                    if (DEBUG) {
-                        Log.i(TAG, "Got a request for URL: " + mRequestMap.get(msg.obj));
-                    }
                     handleRequest(target);
                 }
             }

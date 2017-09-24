@@ -1,6 +1,9 @@
 package info.ivicel.photogallery;
 
 import android.annotation.TargetApi;
+import android.support.v4.view.MenuItemCompat;
+import android.support.v7.app.ActionBar;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -10,16 +13,22 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.SearchView;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.TextView;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,15 +41,63 @@ import static info.ivicel.photogallery.BuildConfig.DEBUG;
 public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "PhotoGalleryFragment";
     
+    
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
+    
+    
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery, menu);
+    
+        final MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchView = (SearchView)searchItem.getActionView();
+    
+        searchView.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        searchView.setQueryHint("input what you want");
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                QueryPreferences.setStoredQuery(getContext(), query);
+                updateItems();
+                return true;
+            }
+    
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+        
+        searchView.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String query = QueryPreferences.getStoredQuery(getContext());
+                searchView.setQuery(query, false);
+            }
+        });
+    }
+    
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getContext(), null);
+                updateItems();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
     
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemTask().execute();
+        setHasOptionsMenu(true);
+        updateItems();
         
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -54,7 +111,6 @@ public class PhotoGalleryFragment extends Fragment {
                 });
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper();
-        Log.e(TAG, "onCreate: background thread started");
     }
     
     @Nullable
@@ -62,6 +118,8 @@ public class PhotoGalleryFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
+        final Toolbar toolbar = (Toolbar)v.findViewById(R.id.toolbar);
+        ((AppCompatActivity)getActivity()).setSupportActionBar(toolbar);
         mPhotoRecyclerView = (RecyclerView)v.findViewById(R.id.photo_recycler_view);
         mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3));
         setupAdapter();
@@ -73,11 +131,20 @@ public class PhotoGalleryFragment extends Fragment {
     }
     
     private class FetchItemTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+        private String mQuery;
     
-        
+        public FetchItemTask(String query) {
+            super();
+            mQuery = query;
+        }
+    
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
-            return new FlickrFetchr().fetchItems();
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos();
+            } else {
+                return new FlickrFetchr().searchPhotos(mQuery);
+            }
         }
     
         @Override
@@ -132,6 +199,7 @@ public class PhotoGalleryFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
+            Log.d(TAG, "onBindViewHolder: " + position);
             GalleryItem item = mGalleryItems.get(position);
             Drawable placeholder;
             if (Build.VERSION.SDK_INT >= 22) {
@@ -155,4 +223,10 @@ public class PhotoGalleryFragment extends Fragment {
             mPhotoRecyclerView.setAdapter(new PhototAdapter(mItems));
         }
     }
+    
+    private void updateItems() {
+        String query = QueryPreferences.getStoredQuery(getContext());
+        new FetchItemTask(query).execute();
+    }
+    
 }
