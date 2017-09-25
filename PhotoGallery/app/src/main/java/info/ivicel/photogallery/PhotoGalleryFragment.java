@@ -41,7 +41,6 @@ import static info.ivicel.photogallery.BuildConfig.DEBUG;
 public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "PhotoGalleryFragment";
     
-    
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
@@ -78,6 +77,13 @@ public class PhotoGalleryFragment extends Fragment {
                 searchView.setQuery(query, false);
             }
         });
+    
+        MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
+        if (PollService.isServiceAlarmOn(getContext())) {
+            toggleItem.setTitle(R.string.stop_polling);
+        } else {
+            toggleItem.setTitle(R.string.start_polling);
+        }
     }
     
     @Override
@@ -86,6 +92,11 @@ public class PhotoGalleryFragment extends Fragment {
             case R.id.menu_item_clear:
                 QueryPreferences.setStoredQuery(getContext(), null);
                 updateItems();
+                return true;
+            case R.id.menu_item_toggle_polling:
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getContext());
+                PollService.setServiceAlarm(getContext(), shouldStartAlarm);
+                getActivity().invalidateOptionsMenu();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -111,6 +122,8 @@ public class PhotoGalleryFragment extends Fragment {
                 });
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper();
+        
+        PollService.setServiceAlarm(getContext(), true);
     }
     
     @Nullable
@@ -199,7 +212,6 @@ public class PhotoGalleryFragment extends Fragment {
 
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
-            Log.d(TAG, "onBindViewHolder: " + position);
             GalleryItem item = mGalleryItems.get(position);
             Drawable placeholder;
             if (Build.VERSION.SDK_INT >= 22) {
