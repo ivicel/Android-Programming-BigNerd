@@ -38,7 +38,7 @@ import static info.ivicel.photogallery.BuildConfig.DEBUG;
  * Created by Ivicel on 21/09/2017.
  */
 
-public class PhotoGalleryFragment extends Fragment {
+public class PhotoGalleryFragment extends VisibleFragment {
     private static final String TAG = "PhotoGalleryFragment";
     
     private RecyclerView mPhotoRecyclerView;
