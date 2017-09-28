@@ -1,9 +1,6 @@
 package info.ivicel.photogallery;
 
-import android.annotation.TargetApi;
-import android.support.v4.view.MenuItemCompat;
-import android.support.v7.app.ActionBar;
-import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -12,13 +9,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.SearchView;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -182,24 +177,36 @@ public class PhotoGalleryFragment extends VisibleFragment {
         mThumbnailDownloader.clearQueue();
     }
     
-    private class PhotoHolder extends RecyclerView.ViewHolder {
+    private class PhotoHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         private ImageView mItemImageView;
+        private GalleryItem mGalleryItem;
     
         public PhotoHolder(View itemView) {
             super(itemView);
             
             mItemImageView = (ImageView)itemView.findViewById(R.id.item_image_view);
+            mItemImageView.setOnClickListener(this);
         }
     
         public void bindDrawable(Drawable drawable) {
             mItemImageView.setImageDrawable(drawable);
         }
+    
+        public void bindGalleryItem(GalleryItem item) {
+            mGalleryItem = item;
+        }
+    
+        @Override
+        public void onClick(View v) {
+            Intent i = PhotoPageActivity.newIntent(getContext(), mGalleryItem.getPhotoPageUri());
+            startActivity(i);
+        }
     }
     
-    private class PhototAdapter extends RecyclerView.Adapter<PhotoHolder> {
+    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
         private List<GalleryItem> mGalleryItems;
     
-        public PhototAdapter(List<GalleryItem> galleryItems) {
+        public PhotoAdapter(List<GalleryItem> galleryItems) {
             mGalleryItems = galleryItems;
         }
     
@@ -221,6 +228,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
                 placeholder = getResources().getDrawable(R.drawable.bill_up_close);
             }
             holder.bindDrawable(placeholder);
+            holder.bindGalleryItem(item);
             mThumbnailDownloader.queueThumbnail(holder, item.getUrl());
         }
     
@@ -232,7 +240,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
     
     public void setupAdapter() {
         if (isAdded()) {
-            mPhotoRecyclerView.setAdapter(new PhototAdapter(mItems));
+            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
         }
     }
     
