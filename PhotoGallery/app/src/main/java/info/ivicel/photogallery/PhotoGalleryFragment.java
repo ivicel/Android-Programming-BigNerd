@@ -1,6 +1,6 @@
 package info.ivicel.photogallery;
 
-import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -9,7 +9,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -28,14 +27,13 @@ import android.widget.ImageView;
 import java.util.ArrayList;
 import java.util.List;
 
-import static info.ivicel.photogallery.BuildConfig.BUILD_TYPE;
 import static info.ivicel.photogallery.BuildConfig.DEBUG;
 
 /**
  * Created by Ivicel on 21/09/2017.
  */
 
-public class PhotoGalleryFragment extends Fragment {
+public class PhotoGalleryFragment extends VisibleFragment {
     private static final String TAG = "PhotoGalleryFragment";
     
     private RecyclerView mPhotoRecyclerView;
@@ -76,12 +74,11 @@ public class PhotoGalleryFragment extends Fragment {
         });
     
         MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
-        if (mServiceController.isServiceOn(getContext())) {
+        if (PollService.isServiceAlarmOn(getContext())) {
             toggleItem.setTitle(R.string.stop_polling);
         } else {
             toggleItem.setTitle(R.string.start_polling);
         }
-        
     }
     
     @Override
@@ -92,8 +89,8 @@ public class PhotoGalleryFragment extends Fragment {
                 updateItems();
                 return true;
             case R.id.menu_item_toggle_polling:
-                boolean shouldStartAlarm = !mServiceController.isServiceOn(getContext());
-                mServiceController.setServiceAlarm(getContext(), shouldStartAlarm);
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getContext());
+                PollService.setServiceAlarm(getContext(), shouldStartAlarm);
                 getActivity().invalidateOptionsMenu();
                 return true;
             default:
@@ -121,7 +118,7 @@ public class PhotoGalleryFragment extends Fragment {
         mThumbnailDownloader.start();
         mThumbnailDownloader.getLooper();
         
-        mServiceController.setServiceAlarm(getContext(), true);
+        PollService.setServiceAlarm(getContext(), true);
     }
     
     @Nullable
@@ -180,24 +177,36 @@ public class PhotoGalleryFragment extends Fragment {
         mThumbnailDownloader.clearQueue();
     }
     
-    private class PhotoHolder extends RecyclerView.ViewHolder {
+    private class PhotoHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
         private ImageView mItemImageView;
+        private GalleryItem mGalleryItem;
     
         public PhotoHolder(View itemView) {
             super(itemView);
             
             mItemImageView = (ImageView)itemView.findViewById(R.id.item_image_view);
+            mItemImageView.setOnClickListener(this);
         }
     
         public void bindDrawable(Drawable drawable) {
             mItemImageView.setImageDrawable(drawable);
         }
+    
+        public void bindGalleryItem(GalleryItem item) {
+            mGalleryItem = item;
+        }
+    
+        @Override
+        public void onClick(View v) {
+            Intent i = PhotoPageActivity.newIntent(getContext(), mGalleryItem.getPhotoPageUri());
+            startActivity(i);
+        }
     }
     
-    private class PhototAdapter extends RecyclerView.Adapter<PhotoHolder> {
+    private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
         private List<GalleryItem> mGalleryItems;
     
-        public PhototAdapter(List<GalleryItem> galleryItems) {
+        public PhotoAdapter(List<GalleryItem> galleryItems) {
             mGalleryItems = galleryItems;
         }
     
@@ -219,6 +228,7 @@ public class PhotoGalleryFragment extends Fragment {
                 placeholder = getResources().getDrawable(R.drawable.bill_up_close);
             }
             holder.bindDrawable(placeholder);
+            holder.bindGalleryItem(item);
             mThumbnailDownloader.queueThumbnail(holder, item.getUrl());
         }
     
@@ -230,7 +240,7 @@ public class PhotoGalleryFragment extends Fragment {
     
     public void setupAdapter() {
         if (isAdded()) {
-            mPhotoRecyclerView.setAdapter(new PhototAdapter(mItems));
+            mPhotoRecyclerView.setAdapter(new PhotoAdapter(mItems));
         }
     }
     
@@ -238,26 +248,5 @@ public class PhotoGalleryFragment extends Fragment {
         String query = QueryPreferences.getStoredQuery(getContext());
         new FetchItemTask(query).execute();
     }
-    
-    
-    private ServiceController mServiceController = new ServiceController() {
-        @Override
-        public boolean isServiceOn(Context context) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                return MyJobService.isJobStarted(context);
-            } else {
-                return PollService.isServiceAlarmOn(context);
-            }
-        }
-    
-        @Override
-        public void setServiceAlarm(Context context, boolean isOn) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                MyJobService.setJobService(context, isOn);
-            } else {
-                PollService.setServiceAlarm(context, isOn);
-            }
-        }
-    };
     
 }
