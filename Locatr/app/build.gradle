@@ -13,12 +13,14 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            buildConfigField('String', 'FLICKR_API_KEY', flickrApiKey)
+            buildConfigField 'String', 'FLICKR_API_KEY', FLICKR_API_KEY
+            resValue 'string', 'GOOGLE_MAPS_API_KEY', GOOGLE_MAPS_API_KEY
         }
         debug {
-            buildConfigField('String', 'FLICKR_API_KEY', flickrApiKey)
+            buildConfigField('String', 'FLICKR_API_KEY', FLICKR_API_KEY)
+            resValue 'string', 'GOOGLE_MAPS_API_KEY', GOOGLE_MAPS_API_KEY
         }
     }
 }
@@ -30,6 +32,7 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:25.3.1'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
-    testCompile 'junit:junit:4.12'
     compile 'com.google.android.gms:play-services-location:11.0.4'
+    compile 'com.google.android.gms:play-services-maps:11.0.4'
+    testCompile 'junit:junit:4.12'
 }
